@@ -1,7 +1,6 @@
 import { User } from "../Models/user.model.js";
 import { CustomError } from "../utills/customError.js";
 
-
 const sendLoginToken = (user, statusCode, res) => {
   const accessToken = user.createLoginToken();
 
@@ -91,6 +90,59 @@ export const getCurrentUser = async (req, res, next) => {
         accountCreatedAt: currentUser.accountCreatedAt,
         lastLoginDate: currentUser.lastLoginDate,
       },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const resetPassword = async (req, res, next) => {
+  try {
+    const { emailAddress, oldPassword, newPassword } = req.body;
+
+    if (!emailAddress || !oldPassword || !newPassword) {
+      return next(
+        new CustomError(
+          "Please provide email, old password and new password",
+          400
+        )
+      );
+    }
+
+    const user = await User.findOne({ emailAddress }).select("+userPassword");
+
+    if (!user) {
+      return next(
+        new CustomError("No user found with this email address", 404)
+      );
+    }
+
+    // Verify old password
+    const isPasswordValid = await user.isPasswordCorrect(oldPassword);
+    if (!isPasswordValid) {
+      return next(new CustomError("Current password is incorrect", 401));
+    }
+
+    // Check new password is different from old
+    const isSamePassword = await user.isPasswordCorrect(newPassword);
+    if (isSamePassword) {
+      return next(
+        new CustomError(
+          "New password must be different from current password",
+          400
+        )
+      );
+    }
+
+    // Update the in db
+    user.userPassword = newPassword;
+    await user.save();
+
+    // Send response
+    res.status(200).json({
+      success: true,
+      message:
+        "Password updated successfully. Please login with your new password",
     });
   } catch (error) {
     next(error);

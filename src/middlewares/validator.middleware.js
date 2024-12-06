@@ -73,5 +73,51 @@ export const validateInput = (validationType) => {
         },
       ];
     }
+
+    case "resetPassword": {
+      return [
+        body("emailAddress")
+          .trim()
+          .notEmpty()
+          .withMessage("Please provide your email address")
+          .isEmail()
+          .withMessage("Please provide a valid email address")
+          .normalizeEmail(),
+
+        body("oldPassword")
+          .trim()
+          .notEmpty()
+          .withMessage("Please provide your current password"),
+
+        body("newPassword")
+          .trim()
+          .notEmpty()
+          .withMessage("Please provide a new password")
+          .isLength({ min: 6 })
+          .withMessage("New password must be at least 6 characters long")
+          .custom((value, { req }) => {
+            if (value === req.body.oldPassword) {
+              throw new Error(
+                "New password cannot be the same as current password"
+              );
+            }
+            return true;
+          }),
+
+        (req, res, next) => {
+          const errors = validationResult(req);
+          if (!errors.isEmpty()) {
+            return res.status(400).json({
+              success: false,
+              errors: errors.array().map((err) => ({
+                field: err.param,
+                message: err.msg,
+              })),
+            });
+          }
+          next();
+        },
+      ];
+    }
   }
 };
